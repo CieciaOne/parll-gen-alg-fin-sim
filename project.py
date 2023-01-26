@@ -63,7 +63,7 @@ def cross_over(a, b):
 def sma(data, window):
     sma = np.array([np.NaN] * window)
     for i in range(window, len(data)):
-        sma = np.append(sma, np.average(data[i - window: i]))
+        sma = np.append(sma, np.average(data[i - window : i]))
     return sma
 
 
@@ -118,8 +118,7 @@ def genetic_algorithm(
 
     for _ in range(n_iter):
         with Pool(processes) as p:
-            args = [(copy.copy(acc), data, strat, params)
-                    for params in population]
+            args = [(copy.copy(acc), data, strat, params) for params in population]
             scores = p.starmap(sim, args)
 
         for i in range(n_pop):
@@ -140,8 +139,10 @@ def genetic_algorithm(
     return [best, best_eval]
 
 
-def render(data):
-    print(data)
+def render(t, p):
+    fig, ax = plt.subplots()
+    ax.plot(p, t)
+    plt.show()
 
 
 def main():
@@ -150,12 +151,15 @@ def main():
     data = genfromtxt("data.csv")
 
     param_bounds = {"sma1": [1, 100], "sma2": [1, 100]}
-    n_iter = 10
-    n_pop = 50
+    n_iter = 50
+    # n_pop must be even number
+    # we don't want to leave anyone alone :) right?
+    n_pop = 100
     r_cross = 0.3
     r_mut = 3
 
-    res = []
+    times = []
+    procs = []
     for processes in range(1, 9):
         start = time.time()
         try:
@@ -172,16 +176,23 @@ def main():
                 r_mut,
                 processes,
             )
+
             finish = time.time()
             run_time = finish - start
-            print("Done in:", run_time, "s, using", processes, "processes")
+            print(f"Done in:{run_time}s, using{processes} processes")
             print(best, score)
-            res.append([run_time, processes])
-            render(res)
+
+            times.append(run_time)
+            procs.append(processes)
+
         except KeyboardInterrupt:
             sig.signal(sig.SIGINT, sig.SIG_IGN)
+            sig.signal(sig.SIGTERM, sig.SIG_IGN)
+
             print("Shutting down")
             exit(0)
+
+    render(times, procs)
 
 
 if __name__ == "__main__":
