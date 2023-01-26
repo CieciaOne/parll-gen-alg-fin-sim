@@ -35,9 +35,9 @@ class Account:
 
 # Returns a array with buy/sell flags
 def sma_strategy(data: np.ndarray, params):
-    closes = data[:, 4]
-    sma1 = sma(closes, params.get("sma1"))
-    sma2 = sma(closes, params.get("sma2"))
+
+    sma1 = sma(data, params.get("sma1"))
+    sma2 = sma(data, params.get("sma2"))
     longs = cross_over(sma1, sma2)
     exits = cross_over(sma2, sma1) * -1
     return merge_signals(longs, exits)
@@ -63,13 +63,12 @@ def cross_over(a, b):
 def sma(data, window):
     sma = np.array([np.NaN] * window)
     for i in range(window, len(data)):
-        sma = np.append(sma, np.average(data[i - window : i]))
+        sma = np.append(sma, np.average(data[i - window: i]))
     return sma
 
 
-def simulate(account: Account, data: np.ndarray, strategy, params):
-    signals = strategy(data, params)
-    prices = data[:, 4]
+def simulate(account: Account, prices: np.ndarray, strategy, params):
+    signals = strategy(prices, params)
     for price, signal in zip(prices, signals):
         if signal == 1 and account.a_amount != 0:
             account.a_to_b(price)
@@ -117,10 +116,11 @@ def genetic_algorithm(
     account = copy.copy(acc)
     best, best_eval = sys.maxsize, sim(account, data, strat, population[0])
 
-    for gen in range(n_iter):
+    for _ in range(n_iter):
         with Pool(processes) as p:
-            args = [(copy.copy(acc), data, strat, params) for params in population]
-            scores = p.starmap_async(sim, args).get()
+            args = [(copy.copy(acc), data, strat, params)
+                    for params in population]
+            scores = p.starmap(sim, args)
 
         for i in range(n_pop):
             if scores[i] > best_eval:
@@ -140,10 +140,14 @@ def genetic_algorithm(
     return [best, best_eval]
 
 
-def main():
+def render(data):
+    print(data)
 
+
+def main():
+    print("Calculating...")
     account = Account(100)
-    data = genfromtxt("BTCUSDT-1m-2023-01-14.csv", delimiter=",")
+    data = genfromtxt("data.csv")
 
     param_bounds = {"sma1": [1, 100], "sma2": [1, 100]}
     n_iter = 10
@@ -169,12 +173,13 @@ def main():
                 processes,
             )
             finish = time.time()
-            t = finish - start
-            print("Done in:", t, "s, using", processes, "processes")
+            run_time = finish - start
+            print("Done in:", run_time, "s, using", processes, "processes")
             print(best, score)
-            res.append([t, processes])
-            print(res)
+            res.append([run_time, processes])
+            render(res)
         except KeyboardInterrupt:
+            sig.signal(sig.SIGINT, sig.SIG_IGN)
             print("Shutting down")
             exit(0)
 
